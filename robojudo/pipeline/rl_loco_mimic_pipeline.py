@@ -220,17 +220,6 @@ class PolicyInterpManager(PolicyManager):
             self.env.set_dof_state(init_dof_pos)  # pyright: ignore[reportAttributeAccessIssue]
         self.override_dof_indices = list(self.default_override_dof_indices)
 
-    def _clear_soccer_perception_cache(self, ctrl_data=None):
-        for controller in self.ctrl_manager.controllers.values():
-            provider = getattr(controller.inst, "provider", None)
-            clear = getattr(provider, "clear", None)
-            if callable(clear):
-                clear()
-        if ctrl_data is not None:
-            ctrl_data.pop("soccer_obs", None)
-            ctrl_data.pop("ball_local", None)
-            ctrl_data["soccer_obs_valid"] = False
-
     def step(self, env_data, ctrl_data):
         super().step(env_data, ctrl_data)
         self._interpolate_step()
@@ -320,7 +309,7 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
                     self.policy_manager.toggle_mimic_policy(-1)
             elif command == "[POLICY_LOCO]":
                 self.policy_locomotion_mimic_flag = 0
-                self.policy_manager._clear_soccer_perception_cache(ctrl_data)
+                self._clear_soccer_perception_cache(ctrl_data)
                 self.policy_manager.switch_to_loco()
             elif command == "[POLICY_MIMIC]":
                 self.policy_locomotion_mimic_flag = 1
@@ -348,6 +337,17 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
                 pd_target=pd_target,
                 timestep=self.timestep,
             )
+
+    def _clear_soccer_perception_cache(self, ctrl_data=None):
+        for controller in self.ctrl_manager.controllers.values():
+            provider = getattr(controller.inst, "provider", None)
+            clear = getattr(provider, "clear", None)
+            if callable(clear):
+                clear()
+        if ctrl_data is not None:
+            ctrl_data.pop("soccer_obs", None)
+            ctrl_data.pop("ball_local", None)
+            ctrl_data["soccer_obs_valid"] = False
 
     def step(self, dry_run=False):
         self.env.update()
