@@ -214,6 +214,37 @@ class AMOPolicyCfg(PolicyCfg):
     commands_map: list[list[float]]
 
 
+class SelfPolicyCfg(PolicyCfg):
+    policy_type: str = "SelfPolicy"
+    policy_name: str = "policy_self"
+    model_group: str = "unitree"
+
+    class ObsScalesCfg(Config):
+        ang_vel: float = 1.0
+        dof_vel: float = 1.0
+        dof_pos: float = 1.0
+        command: list[float] = [1.0, 1.0, 1.0]
+
+    @property
+    def policy_file(self) -> str:
+        policy_file = ASSETS_DIR / f"models/{self.robot}/{self.model_group}/{self.policy_name}.pt"
+        return policy_file.as_posix()
+
+    obs_scales: ObsScalesCfg = ObsScalesCfg()
+    max_cmd: list[float] = [0.8, 0.5, 1.57]
+    commands_map: list[list[float]] = [
+        [-1.0, 0.0, 1.0],
+        [1.0, 0.0, -1.0],
+        [1.0, 0.0, -1.0],
+    ]
+
+    history_length: int = 10
+    obs_history_len: int = 10
+    single_obs_dim: int = 98
+    num_actions: int = 29
+    action_scales: list[float]
+
+
 class BeyondMimicPolicyCfg(PolicyCfg):
     policy_type: str = "BeyondMimicPolicy"
     disable_autoload: bool = True
@@ -340,6 +371,33 @@ class AsapLocoPolicyCfg(PolicyCfg):
 
     # ======= Default Command CONFIGURATION =======
     command_base_height_default: float
+
+
+class SoccerPolicyCfg(PolicyCfg):
+    policy_type: str = "SoccerPolicy"
+    disable_autoload: bool = True
+
+    policy_name: str = "policy_80000_bundle"
+
+    @property
+    def policy_file(self) -> str:
+        policy_file = ASSETS_DIR / f"models/{self.robot}/soccer/{self.policy_name}.onnx"
+        return policy_file.as_posix()
+
+    action_scale: float = 1.0
+    action_clip: float | None = 100.0
+    action_beta: float = 1.0
+    action_ramp_steps: int = 0
+
+    providers: list[str] | None = ["CPUExecutionProvider"]
+
+    # Fixed ball is used only when soccer_target_source="cfg".
+    ball_local: list[float] = [1.305299997329712, -0.5062000155448914, -0.6121000051498413]
+    ball_to_goal_anchor: list[float] = [3.8, -0.2, 0.28]
+    soccer_target_source: str = "auto"
+    """auto, env, ctrl, or cfg. auto prefers ctrl_data, then env_data; cfg is explicit fixed-target mode."""
+    use_env_soccer_obs: bool = True
+
 
 
 class KungfuBotGeneralPolicyCfg(PolicyCfg):

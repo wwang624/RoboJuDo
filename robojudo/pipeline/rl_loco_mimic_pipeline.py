@@ -32,6 +32,7 @@ class PolicyInterpManager(PolicyManager):
         cfg_policy_loco: PolicyCfg,
         cfg_policies: list[PolicyCfg],
         env: Environment,
+        default_override_dof_indices: list[int],
         loco_dof_pos: np.ndarray | None = None,
         device: str = "cpu",
     ):
@@ -54,6 +55,16 @@ class PolicyInterpManager(PolicyManager):
 
         self.loco_dof_pos = loco_dof_pos if loco_dof_pos is not None else self.env.default_pos.copy()
         self.override_dof_pos = self.loco_dof_pos.copy()
+        self.default_override_dof_indices = default_override_dof_indices
+        self.override_dof_indices = list(default_override_dof_indices)
+
+    def set_policy(self, policy_id: int):
+        if not (0 <= policy_id < self.num_policies):
+            raise ValueError(f"Policy id {policy_id} out of range [0, {self.num_policies})")
+        self.warmup_policy_indices.discard(policy_id)
+        self._current_policy_id = policy_id
+        self.env.update_dof_cfg(override_cfg=self.policy.cfg_action_dof)
+        logger.warning(f"Switched to policy: {policy_id}: {self.policy.name}")
 
     def _interpolate_init(
         self,
@@ -142,18 +153,81 @@ class PolicyInterpManager(PolicyManager):
             callback_start=lambda: self.set_policy(self.policy_loco_id),
         )
 
-    def switch_to_mimic(self):
+    def _ctrl_ball_local(self, ctrl_data):
+        if ctrl_data is None:
+            return None
+        soccer_obs = ctrl_data.get("soccer_obs", None)
+        if soccer_obs is not None:
+            ball_local = soccer_obs.get("ball_local", None) if hasattr(soccer_obs, "get") else getattr(soccer_obs, "ball_local", None)
+            if ball_local is not None:
+                return ball_local
+        return ctrl_data.get("ball_local", None)
+
+    def switch_to_mimic(self, env_data=None, ctrl_data=None):
         if self.current_policy_id != self.policy_loco_id:
             logger.warning("Already in mimic policy.")
             return
         policy_mimic_id = self.policy_mimic_ids[self.policy_mimic_idx]
+        if getattr(self.policy_by_id(policy_mimic_id).policy, "requires_hard_switch", False):
+            self._set_mimic_policy(policy_mimic_id, env_data=env_data, ctrl_data=ctrl_data)
+            return
         self.policy_by_id(policy_mimic_id).reset()
         self.warmup_policy_indices.add(policy_mimic_id)
         self._interpolate_init(
             get_target_pos=lambda: self.policy_by_id(policy_mimic_id).get_init_dof_pos(),
             durations=self.DURATIONS_LOCO_MIMIC,
-            callback_end=lambda: self.set_policy(policy_mimic_id),
+            callback_end=lambda: self._set_mimic_policy(policy_mimic_id, env_data=env_data, ctrl_data=ctrl_data),
         )
+
+    def _set_mimic_policy(self, policy_id: int, env_data=None, ctrl_data=None):
+        policy = self.policy_by_id(policy_id)
+        init_root_state = getattr(policy, "get_init_root_state", None)
+        self.set_policy(policy_id)
+        if (
+            init_root_state is not None
+            and not getattr(policy.policy, "requires_hard_switch", False)
+            and hasattr(self.env, "set_root_state")
+        ):
+            root_pos, root_quat = init_root_state()
+            self.env.set_root_state(root_pos, root_quat, reset_alignment=False)  # pyright: ignore[reportAttributeAccessIssue]
+        soccer_obs = getattr(self.env, "_soccer_obs", None)
+        use_env_soccer_obs = bool(getattr(policy.policy, "use_env_soccer_obs", True))
+        target_source = str(getattr(policy.policy, "soccer_target_source", "auto")).lower()
+        wants_env_target = use_env_soccer_obs and target_source in {"auto", "env"}
+        if wants_env_target and hasattr(self.env, "sync_soccer_objects_to_configured_targets"):
+            self.env.sync_soccer_objects_to_configured_targets()  # pyright: ignore[reportAttributeAccessIssue]
+            soccer_obs = getattr(self.env, "_soccer_obs", None)
+        if hasattr(policy.policy, "reset"):
+            try:
+                ctrl_ball_local = self._ctrl_ball_local(ctrl_data) if target_source in {"auto", "ctrl"} else None
+                base_quat = getattr(env_data, "base_quat", None)
+                if ctrl_ball_local is not None:
+                    policy.policy.reset(ball_local=ctrl_ball_local, base_quat=base_quat)
+                elif soccer_obs is not None and wants_env_target:
+                    policy.policy.reset(ball_local=soccer_obs["ball_local"], base_quat=base_quat)
+                else:
+                    policy.policy.reset(base_quat=base_quat)
+            except TypeError:
+                pass
+        reset_dof_on_switch = bool(getattr(policy.policy, "reset_dof_on_hard_switch", False))
+        if (
+            (not getattr(policy.policy, "requires_hard_switch", False) or reset_dof_on_switch)
+            and hasattr(self.env, "set_dof_state")
+        ):
+            init_dof_pos = policy.get_init_dof_pos()
+            self.env.set_dof_state(init_dof_pos)  # pyright: ignore[reportAttributeAccessIssue]
+        self.override_dof_indices = list(self.default_override_dof_indices)
+
+    def _clear_soccer_perception_cache(self, ctrl_data=None):
+        for controller in self.ctrl_manager.controllers.values():
+            provider = getattr(controller.inst, "provider", None)
+            clear = getattr(provider, "clear", None)
+            if callable(clear):
+                clear()
+        if ctrl_data is not None:
+            ctrl_data.pop("soccer_obs", None)
+            ctrl_data.pop("ball_local", None)
+            ctrl_data["soccer_obs_valid"] = False
 
     def step(self, env_data, ctrl_data):
         super().step(env_data, ctrl_data)
@@ -194,16 +268,21 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
             cfg_policy_loco=self.cfg.loco_policy,
             cfg_policies=self.cfg.mimic_policies,
             env=self.env,
+            default_override_dof_indices=self.override_dof_indices,
             loco_dof_pos=self.loco_dof_pos,
             device=self.device,
         )
         self.env.update_dof_cfg(override_cfg=self.policy.cfg_action_dof)
+        self.loco_dof_pos = self.policy.get_init_dof_pos()
+        self.policy_manager.loco_dof_pos = self.loco_dof_pos.copy()
+        self.policy_manager.override_dof_pos = self.loco_dof_pos.copy()
         self.visualizer = self.env.visualizer
 
         self.freq = self.cfg.loco_policy.freq
         self.dt = 1.0 / self.freq
 
         self.policy_locomotion_mimic_flag = 0  # 0: locomotion, 1: mimic
+        logger.info(f"Initial policy: {self.policy_manager.current_policy_id}: {self.policy.name}")
 
         self.self_check()
         self.reset()
@@ -217,7 +296,10 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
         for callback in extras.get("CALLBACK", []):
             match callback:
                 case "[MOTION_DONE]":
-                    if self.policy_locomotion_mimic_flag == 1:
+                    if (
+                        self.policy_locomotion_mimic_flag == 1
+                        and self.policy_manager.interp_state == self.policy_manager.InterpState.IDLE
+                    ):
                         commands.append("[POLICY_LOCO]")
                         logger.info("Mimic motion done, switch to locomotion policy.")
 
@@ -238,10 +320,15 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
                         self.policy_manager.toggle_mimic_policy(-1)
                 case "[POLICY_LOCO]":
                     self.policy_locomotion_mimic_flag = 0
+                    self.policy_manager._clear_soccer_perception_cache(ctrl_data)
                     self.policy_manager.switch_to_loco()
                 case "[POLICY_MIMIC]":
                     self.policy_locomotion_mimic_flag = 1
-                    self.policy_manager.switch_to_mimic()
+                    self.policy_manager.switch_to_mimic(env_data=env_data, ctrl_data=ctrl_data)
+
+        soccer_goal_world = extras.get("soccer_goal_world", None)
+        if soccer_goal_world is not None and hasattr(self.env, "set_soccer_goal_marker_world"):
+            self.env.set_soccer_goal_marker_world(soccer_goal_world)  # pyright: ignore[reportAttributeAccessIssue]
 
         self.ctrl_manager.post_step_callback(ctrl_data)
 
@@ -279,7 +366,8 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
         pd_target = self.policy.get_pd_target(obs)
 
         if self.policy_manager.current_policy_id == self.policy_manager.policy_loco_id:
-            pd_target[self.override_dof_indices] = self.policy_manager.override_dof_pos[self.override_dof_indices]
+            override_dof_indices = self.policy_manager.override_dof_indices
+            pd_target[override_dof_indices] = self.policy_manager.override_dof_pos[override_dof_indices]
 
         if not dry_run:
             self.env.step(pd_target, extras.get("hand_pose", None))

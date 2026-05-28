@@ -1,7 +1,8 @@
-from robojudo.config import cfg_registry
+from robojudo.config import ASSETS_DIR, cfg_registry
 from robojudo.controller.ctrl_cfgs import (
     JoystickCtrlCfg,  # noqa: F401
     KeyboardCtrlCfg,  # noqa: F401
+    SoccerPerceptionCtrlCfg,  # noqa: F401
     UnitreeCtrlCfg,  # noqa: F401
 )
 from robojudo.pipeline.pipeline_cfgs import (
@@ -23,13 +24,19 @@ from .env.g1_mujuco_env_cfg import G1_12MujocoEnvCfg, G1_23MujocoEnvCfg, G1Mujoc
 from .env.g1_real_env_cfg import G1RealEnvCfg, G1UnitreeCfg  # noqa: F401
 from .pipeline.g1_locomimic_pipeline_cfg import G1RlLocoMimicPipelineCfg  # noqa: F401
 from .policy.g1_amo_policy_cfg import G1AmoPolicyCfg  # noqa: F401
+from .policy.g1_amp_loco_policy_cfg import G1AmpLocoPolicyCfg  # noqa: F401
 from .policy.g1_asap_policy_cfg import G1AsapLocoPolicyCfg, G1AsapPolicyCfg  # noqa: F401
 from .policy.g1_beyondmimic_policy_cfg import G1BeyondMimicPolicyCfg  # noqa: F401
+from .policy.g1_dl_policy_cfg import G1dlPolicyCfg  # noqa: F401
 from .policy.g1_h2h_policy_cfg import G1H2HPolicyCfg  # noqa: F401
 from .policy.g1_kungfubot_policy_cfg import G1KungfuBotGeneralPolicyCfg, G1KungfuBotPolicyCfg  # noqa: F401
 from .policy.g1_smooth_policy_cfg import G1SmoothPolicyCfg  # noqa: F401
+from .policy.g1_soccer_policy_cfg import G1SoccerPolicyCfg, G1_SOCCER_BALL_WORLD, G1_SOCCER_GOAL_WORLD  # noqa: F401
+from .policy.g1_self_policy_cfg import G1SelfPolicyCfg  # noqa: F401
 from .policy.g1_twist_policy_cfg import G1TwistPolicyCfg  # noqa: F401
 from .policy.g1_unitree_policy_cfg import G1UnitreePolicyCfg, G1UnitreeWoGaitPolicyCfg  # noqa: F401
+
+G1_SOCCER_DETECTOR_MODEL = (ASSETS_DIR / "models/g1/soccer/yolov8l.engine").as_posix()
 
 # ================= LocoMotion + MotionMimic Policy Switch Configs ================= #
 
@@ -130,6 +137,94 @@ class g1_locomimic_asap(G1RlLocoMimicPipelineCfg):
     ]
     # fmt: on
 
+
+@cfg_registry.register
+class g1_locomimic_soccer(G1RlLocoMimicPipelineCfg):
+    """
+    RoboJuDo sim closed-loop test: ASAP locomotion + HumanoidSoccer ONNX policy.
+    Soccer ball and goal markers are placed from configured world coordinates in MuJoCo.
+    """
+
+    robot: str = "g1"
+    env: G1MujocoEnvCfg = G1MujocoEnvCfg(
+        forward_kinematic=None,
+        update_with_fk=False,
+        born_place_align=True,
+        soccer_objects_enabled=True,
+        soccer_ball_pos=G1_SOCCER_BALL_WORLD,
+        soccer_goal_marker_pos=G1_SOCCER_GOAL_WORLD,
+        soccer_objects_from_local_targets=False,
+    )
+
+    ctrl: list[KeyboardCtrlCfg | JoystickCtrlCfg] = [
+        KeyboardCtrlCfg(
+            triggers={
+                "i": "[SIM_REBORN]",
+                "o": "[SHUTDOWN]",
+                "]": "[POLICY_LOCO]",
+                "[": "[POLICY_MIMIC]",
+                ";": "[POLICY_SWITCH],NEXT",
+                "'": "[POLICY_SWITCH],LAST",
+            }
+        ),
+    ]
+
+    loco_policy: G1AmpLocoPolicyCfg = G1AmpLocoPolicyCfg()
+    mimic_policies: list[G1SoccerPolicyCfg] = [
+        G1SoccerPolicyCfg(),
+    ]
+    upper_dof_num: int = 0
+    upper_dof_pos_default: list[float] | None = []
+    upper_dof_override_indices: list[int] | None = []
+
+
+@cfg_registry.register
+class g1_locomimic_soccer_real(g1_locomimic_soccer):
+    """
+    Real G1 soccer config. Target observations must come from controller/perception ctrl_data.
+    """
+
+    env: G1RealEnvCfg = G1RealEnvCfg(
+        unitree=G1UnitreeCfg(
+            net_if="eth0",
+        ),
+    )
+    ctrl: list[UnitreeCtrlCfg | SoccerPerceptionCtrlCfg] = [
+        UnitreeCtrlCfg(
+            combination_init_buttons=[],
+            triggers={
+                "A": "[SHUTDOWN]",
+                "Select": "[POLICY_LOCO]",
+                "Start": "[POLICY_MIMIC]",
+                "R1": "[POLICY_SWITCH],NEXT",
+                "L1": "[POLICY_SWITCH],LAST",
+            },
+        ),
+        SoccerPerceptionCtrlCfg(
+            detector_model=G1_SOCCER_DETECTOR_MODEL,
+            manual_ball_local=[1.0, 0.0, -0.4],
+            debug_window=False,
+            threaded=True,
+        ),
+    ]
+    mimic_policies: list[G1SoccerPolicyCfg] = [
+        G1SoccerPolicyCfg(soccer_target_source="auto", use_env_soccer_obs=False),
+    ]
+    do_safety_check: bool = True
+
+
+@cfg_registry.register
+class g1_locomimic_soccer_real_dryrun(g1_locomimic_soccer_real):
+    """
+    Dry-run soccer perception/control wiring. Reads robot/camera state but does not send motor commands.
+    """
+
+    env: G1RealEnvCfg = G1RealEnvCfg(
+        act=False,
+        unitree=G1UnitreeCfg(
+            net_if="eth0",
+        ),
+    )
 
 # ================= LocoMimic Policy Switch Sim2real Configs ================= #
 

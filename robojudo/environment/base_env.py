@@ -172,5 +172,6 @@ class Environment(ABC):
             "torso_quat": self.torso_quat,
             "torso_ang_vel": self.torso_ang_vel,
             "fk_info": self.fk_info,
+            "soccer_obs": getattr(self, "_soccer_obs", None),
         }
         return Box(env_data)

@@ -59,6 +59,27 @@ class UnitreeCtrlCfg(JoystickCtrlCfg):
     }
 
 
+class SoccerPerceptionCtrlCfg(CtrlCfg):
+    ctrl_type: str = "SoccerPerceptionCtrl"
+
+    detector_model: str
+    detector_class_id: int | None = None
+    detector_confidence: float = 0.35
+    detector_device: str | int | None = None
+    width: int = 640
+    height: int = 480
+    fps: int = 30
+    detector_rate: float = 30.0
+    depth_window: int = 7
+    manual_ball_local: list[float] | None = None
+    ball_x_range: list[float] = [0.15, 3.0]
+    ball_y_range: list[float] = [-1.5, 1.5]
+    ball_z_range: list[float] = [-0.9, 0.3]
+    debug_window: bool = False
+    print_interval: int = 30
+    threaded: bool = False
+
+
 class MotionCtrlCfg(CtrlCfg):
     class PhcCfg(Config):
         robot_config_file: str

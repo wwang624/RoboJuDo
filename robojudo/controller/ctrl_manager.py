@@ -67,6 +67,8 @@ class CtrlManager:
             ctrl_data_triggered, ctrl_commands = controller.inst.process_triggers(ctrl_data)
 
             ctrl_data_all[ctrl_type] = ctrl_data_triggered
+            if isinstance(controller.inst, ControllerHook):
+                ctrl_data_all.update(ctrl_data_triggered)
             ctrl_commands_all.update(ctrl_commands)
 
         ctrl_data_all["COMMANDS"] = list(ctrl_commands_all)

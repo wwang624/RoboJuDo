@@ -132,3 +132,4 @@ assets/motions
 logs
 MUJOCO_LOG.TXT
 assets/resources
+assets/robots/**/*_runtime_soccer.xml

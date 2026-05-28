@@ -39,6 +39,20 @@ class MujocoEnvCfg(EnvCfg):
     random_heading: bool = False
     """Randomize the robot's yaw heading on each spawn/reborn (useful for testing heading alignment)."""
 
+    soccer_objects_enabled: bool = False
+    """If True, inject a soccer ball and goal marker into the MuJoCo XML. Sim-only."""
+    soccer_ball_body_name: str = "soccer_ball"
+    soccer_ball_pos: list[float] = [0.5, -1.0, 0.11]
+    """World coordinate used to place the sim-only soccer ball when soccer_objects_from_local_targets is False."""
+    soccer_ball_radius: float = 0.11
+    soccer_goal_marker_pos: list[float] = [5.0, 0.0, 0.11]
+    """World coordinate used to place the sim-only soccer goal marker when soccer_objects_from_local_targets is False."""
+    soccer_goal_marker_radius: float = 0.11
+    soccer_objects_from_local_targets: bool = False
+    """If True, place sim-only soccer objects from pelvis-local target coordinates on spawn/reborn."""
+    soccer_ball_local: list[float] | None = None
+    soccer_goal_marker_local: list[float] | None = None
+
 
 class RobotEnvCfg(EnvCfg):
     env_type: str = "DummyEnv"
