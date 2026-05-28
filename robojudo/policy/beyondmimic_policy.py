@@ -125,13 +125,12 @@ class BeyondMimicPolicy(Policy):
             self.flag_motion_done = True
 
         for command in commands or []:
-            match command:
-                case "[MOTION_RESET]":
-                    self.reset()
-                case "[MOTION_FADE_IN]":
-                    self.play_speed = 1.0
-                case "[MOTION_FADE_OUT]":
-                    self.play_speed = 0.0
+            if command == "[MOTION_RESET]":
+                self.reset()
+            elif command == "[MOTION_FADE_IN]":
+                self.play_speed = 1.0
+            elif command == "[MOTION_FADE_OUT]":
+                self.play_speed = 0.0
 
     def _get_command(self, env_data, ctrl_data):
         if not self.use_motion_from_model:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 import robojudo.environment
@@ -122,23 +124,21 @@ class RlMultiPolicyPipeline(RlPipeline):
 
         commands = ctrl_data.get("COMMANDS", [])
         for command in commands:
-            match command:
-                case "[SHUTDOWN]":
-                    logger.warning("Emergency shutdown!")
-                    self.env.shutdown()
-                case "[SIM_REBORN]":
-                    if hasattr(self.env, "reborn"):
-                        logger.warning("Simulation Env reborn!")
-                        self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
-                case "[POLICY_TOGGLE]":
-                    logger.warning("Policy toggled!")
-                    next_policy_id = (self.policy_manager.current_policy_id + 1) % self.policy_manager.num_policies
-                    self.policy_manager.switch_policy(next_policy_id)
-
-                case cmd if cmd.startswith("[POLICY_SWITCH]"):
-                    policy_id = int(cmd.split(",")[1])
-                    if policy_id < self.policy_manager.num_policies:
-                        self.policy_manager.switch_policy(policy_id)
+            if command == "[SHUTDOWN]":
+                logger.warning("Emergency shutdown!")
+                self.env.shutdown()
+            elif command == "[SIM_REBORN]":
+                if hasattr(self.env, "reborn"):
+                    logger.warning("Simulation Env reborn!")
+                    self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
+            elif command == "[POLICY_TOGGLE]":
+                logger.warning("Policy toggled!")
+                next_policy_id = (self.policy_manager.current_policy_id + 1) % self.policy_manager.num_policies
+                self.policy_manager.switch_policy(next_policy_id)
+            elif command.startswith("[POLICY_SWITCH]"):
+                policy_id = int(command.split(",")[1])
+                if policy_id < self.policy_manager.num_policies:
+                    self.policy_manager.switch_policy(policy_id)
 
         self.ctrl_manager.post_step_callback(ctrl_data)
 

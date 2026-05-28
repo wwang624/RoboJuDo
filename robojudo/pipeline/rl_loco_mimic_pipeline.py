@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable
 from enum import Enum, auto
@@ -294,37 +296,35 @@ class RlLocoMimicPipeline(RlMultiPolicyPipeline):
 
         # Handle policy CALLBACK
         for callback in extras.get("CALLBACK", []):
-            match callback:
-                case "[MOTION_DONE]":
-                    if (
-                        self.policy_locomotion_mimic_flag == 1
-                        and self.policy_manager.interp_state == self.policy_manager.InterpState.IDLE
-                    ):
-                        commands.append("[POLICY_LOCO]")
-                        logger.info("Mimic motion done, switch to locomotion policy.")
+            if callback == "[MOTION_DONE]":
+                if (
+                    self.policy_locomotion_mimic_flag == 1
+                    and self.policy_manager.interp_state == self.policy_manager.InterpState.IDLE
+                ):
+                    commands.append("[POLICY_LOCO]")
+                    logger.info("Mimic motion done, switch to locomotion policy.")
 
         for command in commands:
-            match command:
-                case "[SHUTDOWN]":
-                    logger.warning("Emergency shutdown!")
-                    self.env.shutdown()
-                case "[SIM_REBORN]":
-                    if hasattr(self.env, "reborn"):
-                        logger.warning("Simulation Env reborn!")
-                        self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
-                case cmd if cmd.startswith("[POLICY_SWITCH]"):
-                    switch_target = cmd.split(",")[1]
-                    if switch_target == "NEXT":
-                        self.policy_manager.toggle_mimic_policy(1)
-                    elif switch_target == "LAST":
-                        self.policy_manager.toggle_mimic_policy(-1)
-                case "[POLICY_LOCO]":
-                    self.policy_locomotion_mimic_flag = 0
-                    self.policy_manager._clear_soccer_perception_cache(ctrl_data)
-                    self.policy_manager.switch_to_loco()
-                case "[POLICY_MIMIC]":
-                    self.policy_locomotion_mimic_flag = 1
-                    self.policy_manager.switch_to_mimic(env_data=env_data, ctrl_data=ctrl_data)
+            if command == "[SHUTDOWN]":
+                logger.warning("Emergency shutdown!")
+                self.env.shutdown()
+            elif command == "[SIM_REBORN]":
+                if hasattr(self.env, "reborn"):
+                    logger.warning("Simulation Env reborn!")
+                    self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
+            elif command.startswith("[POLICY_SWITCH]"):
+                switch_target = command.split(",")[1]
+                if switch_target == "NEXT":
+                    self.policy_manager.toggle_mimic_policy(1)
+                elif switch_target == "LAST":
+                    self.policy_manager.toggle_mimic_policy(-1)
+            elif command == "[POLICY_LOCO]":
+                self.policy_locomotion_mimic_flag = 0
+                self.policy_manager._clear_soccer_perception_cache(ctrl_data)
+                self.policy_manager.switch_to_loco()
+            elif command == "[POLICY_MIMIC]":
+                self.policy_locomotion_mimic_flag = 1
+                self.policy_manager.switch_to_mimic(env_data=env_data, ctrl_data=ctrl_data)
 
         soccer_goal_world = extras.get("soccer_goal_world", None)
         if soccer_goal_world is not None and hasattr(self.env, "set_soccer_goal_marker_world"):

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Fix OMP perfmance issue on ARM platform (Jetson)
 import os
 import platform

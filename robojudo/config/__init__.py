@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robojudo.utils.module_registry import Registry
 
 from .config_class import Config

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 
@@ -150,45 +152,37 @@ class RlPipeline(Pipeline):
         self.timestep += 1
         commands = ctrl_data.get("COMMANDS", [])
         for command in commands:
-            match command:
-                case "[SHUTDOWN]":
-                    logger.warning("Emergency shutdown!")
-                    self.env.shutdown()
-                case "[SIM_REBORN]":
-                    if hasattr(self.env, "reborn"):
-                        logger.warning("Simulation Env reborn!")
-                        self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
-                        self.policy.reset_alignment()
-                case "[MOTION_RESET]" | "[MOTION_FADE_IN]":
-                    self._blend_out_active = False
+            if command == "[SHUTDOWN]":
+                logger.warning("Emergency shutdown!")
+                self.env.shutdown()
+            elif command == "[SIM_REBORN]":
+                if hasattr(self.env, "reborn"):
+                    logger.warning("Simulation Env reborn!")
+                    self.env.reborn()  # pyright: ignore[reportAttributeAccessIssue]
+                    self.policy.reset_alignment()
+            elif command in ("[MOTION_RESET]", "[MOTION_FADE_IN]"):
+                self._blend_out_active = False
+                self._blend_out_step = 0
+                self._user_fade_out = False
+                if self._has_default_pose_mode:
+                    logger.info(f"{command} — starting motion from frame 0")
+                    self._set_default_pose_mode(False)
+                else:
+                    logger.info(f"{command} — re-entering blend-in phase")
+                    self._pending_blend_in = True
+            elif command == "[MOTION_FADE_OUT]":
+                if self._has_default_pose_mode:
+                    logger.info("Fade out — switching to default pose mode")
+                    self._set_default_pose_mode(True)
+                    self._user_fade_out = True
+                elif not self._blend_out_active:
+                    logger.info("Fade out — blending to default pose")
+                    self._blend_out_active = True
                     self._blend_out_step = 0
-                    self._user_fade_out = False
-                    if self._has_default_pose_mode:
-                        # Policy is already active — just switch target
-                        # from default pose to motion (instant, no blend).
-                        logger.info(
-                            f"{command} — starting motion from frame 0"
-                        )
-                        self._set_default_pose_mode(False)
-                    else:
-                        # Legacy path: full blend-in needed.
-                        logger.info(
-                            f"{command} — re-entering blend-in phase"
-                        )
-                        self._pending_blend_in = True
-                case "[MOTION_FADE_OUT]":
-                    if self._has_default_pose_mode:
-                        logger.info("Fade out — switching to default pose mode")
-                        self._set_default_pose_mode(True)
-                        self._user_fade_out = True
-                    elif not self._blend_out_active:
-                        logger.info("Fade out — blending to default pose")
-                        self._blend_out_active = True
-                        self._blend_out_step = 0
-                        self._user_fade_out = True
-                        inner = self._inner_policy()
-                        if hasattr(inner, "_paused"):
-                            inner._paused = True
+                    self._user_fade_out = True
+                    inner = self._inner_policy()
+                    if hasattr(inner, "_paused"):
+                        inner._paused = True
 
         self.ctrl_manager.post_step_callback(ctrl_data)
 

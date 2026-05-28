@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -360,11 +362,10 @@ class SoccerPolicy(Policy):
 
     def post_step_callback(self, commands: list[str] | None = None):
         for command in commands or []:
-            match command:
-                case "[MOTION_RESET]" | "[MOTION_FADE_IN]":
-                    self.reset()
-                case "[MOTION_FADE_OUT]":
-                    self.flag_motion_done = True
+            if command in ("[MOTION_RESET]", "[MOTION_FADE_IN]"):
+                self.reset()
+            elif command == "[MOTION_FADE_OUT]":
+                self.flag_motion_done = True
 
     def _current_reference(self) -> dict[str, np.ndarray]:
         idx = CTRL_DETECTOR_WAIT_FRAME if self.waiting_for_ctrl_detector else self.timestep

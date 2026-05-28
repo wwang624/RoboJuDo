@@ -390,11 +390,10 @@ class UnitreeEnv(Environment):
 
         if hand_pose is not None:
             # logger.debug(f"Control hand pose: {hand_pose}")
-            match self.hand_type:
-                case "Dex-3":
-                    self.send_dex_hand_cmd(hand_pose)
-                case "Inspire":
-                    self.send_inspire_hand_cmd(hand_pose)
+            if self.hand_type == "Dex-3":
+                self.send_dex_hand_cmd(hand_pose)
+            elif self.hand_type == "Inspire":
+                self.send_inspire_hand_cmd(hand_pose)
 
         for j in range(self.num_dofs):
             if self._dof_idx is None:

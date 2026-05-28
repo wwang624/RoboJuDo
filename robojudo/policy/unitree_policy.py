@@ -48,19 +48,19 @@ class UnitreePolicy(Policy):
                 for event in keys:
                     if event["type"] == "keyboard":
                         value = event["pressed"] * 1.5
-                        match event["name"]:
-                            case "w":
-                                commands[0] = command_remap(value, self.commands_map[0])
-                            case "s":
-                                commands[0] = command_remap(-value, self.commands_map[0])
-                            case "a":
-                                commands[1] = command_remap(-value, self.commands_map[1])
-                            case "d":
-                                commands[1] = command_remap(value, self.commands_map[1])
-                            case "e":
-                                commands[2] = command_remap(value, self.commands_map[2])
-                            case "q":
-                                commands[2] = command_remap(-value, self.commands_map[2])
+                        name = event["name"]
+                        if name == "w":
+                            commands[0] = command_remap(value, self.commands_map[0])
+                        elif name == "s":
+                            commands[0] = command_remap(-value, self.commands_map[0])
+                        elif name == "a":
+                            commands[1] = command_remap(-value, self.commands_map[1])
+                        elif name == "d":
+                            commands[1] = command_remap(value, self.commands_map[1])
+                        elif name == "e":
+                            commands[2] = command_remap(value, self.commands_map[2])
+                        elif name == "q":
+                            commands[2] = command_remap(-value, self.commands_map[2])
                 break
         return commands
 

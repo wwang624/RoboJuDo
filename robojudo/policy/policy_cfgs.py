@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import field_validator, model_validator
 
 from robojudo.config import ASSETS_DIR, Config

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robojudo.pipeline.pipeline_cfgs import RlLocoMimicPipelineCfg
 
 

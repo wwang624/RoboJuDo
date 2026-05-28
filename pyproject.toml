@@ -10,7 +10,7 @@ authors = [
     { name = "HansZ8", email = "GDDG80@outlook.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.8"
 
 dynamic = ["dependencies"]
 
@@ -28,7 +28,7 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py38"
 exclude = ["__pycache__", ".venv", "build", "dist", "logs", "data", "robojudo/controller/motion_lib", "robojudo/policy/hilo", "robojudo/policy/gmt","packages", "third_party"]
 lint.select = ["E", "F", "I", "B", "UP"]
 lint.ignore = ["B008"]

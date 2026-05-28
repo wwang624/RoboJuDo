@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robojudo.controller.ctrl_cfgs import TwistRedisCtrlCfg
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Configuration for ProtoMotions tracker policy.
 
 DOF config (joint names, stiffness, damping) is loaded from the ONNX YAML

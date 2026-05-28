@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robojudo.environment.env_cfgs import MujocoEnvCfg
 
 from .g1_env_cfg import G1_12EnvCfg, G1_23EnvCfg, G1EnvCfg

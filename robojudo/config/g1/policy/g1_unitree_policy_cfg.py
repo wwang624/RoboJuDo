@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robojudo.policy.policy_cfgs import UnitreePolicyCfg, UnitreeWoGaitPolicyCfg
 from robojudo.tools.tool_cfgs import DoFConfig
 
