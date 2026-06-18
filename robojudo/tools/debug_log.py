@@ -17,6 +17,13 @@ class DebugCfg(Config):
     log_obs: bool = False
     """Warning, this is debug only, may generate large log files and slow down the system."""
 
+    log_soccer: bool = False
+    """Structured soccer recorder for real/sim diagnosis."""
+
+    soccer_log_dir: str = "logs/soccer"
+    soccer_flush_every: int = 50
+    soccer_log_hidden_state: bool = False
+
 
 class DebugLogger:
     """

@@ -232,6 +232,7 @@ class RlPipeline(Pipeline):
 
         if not dry_run:
             self.env.step(pd_target, extras.get("hand_pose", None))
+            self.log_soccer_frame(env_data, ctrl_data, obs, extras, pd_target)
 
         self.post_step_callback(env_data, ctrl_data, extras, pd_target)
 

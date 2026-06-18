@@ -171,7 +171,7 @@ class g1_locomimic_soccer(G1RlLocoMimicPipelineCfg):
         ),
     ]
 
-    loco_policy: G1AmpLocoPolicyCfg = G1AmpLocoPolicyCfg()
+    loco_policy: G1UnitreeWoGaitPolicyCfg = G1UnitreeWoGaitPolicyCfg()
     mimic_policies: list[G1SoccerPolicyCfg] = [
         G1SoccerPolicyCfg(),
     ]

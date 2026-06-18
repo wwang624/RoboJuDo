@@ -28,6 +28,22 @@ def parse_args():
         default="g1",
         help="Name of the config class to use",
     )
+    parser.add_argument(
+        "--log-soccer",
+        action="store_true",
+        help="Enable structured soccer episode recorder.",
+    )
+    parser.add_argument(
+        "--soccer-log-dir",
+        type=str,
+        default=None,
+        help="Directory for structured soccer logs. Defaults to cfg.debug.soccer_log_dir.",
+    )
+    parser.add_argument(
+        "--soccer-log-hidden-state",
+        action="store_true",
+        help="Also store full recurrent hidden states. This can generate large logs.",
+    )
     args = parser.parse_args()
     return args
 
@@ -38,6 +54,12 @@ def main():
     config_manager = ConfigManager(config_name=args.config)
 
     cfg: RlPipelineCfg = config_manager.get_cfg()
+    if args.log_soccer:
+        cfg.debug.log_soccer = True
+    if args.soccer_log_dir is not None:
+        cfg.debug.soccer_log_dir = args.soccer_log_dir
+    if args.soccer_log_hidden_state:
+        cfg.debug.soccer_log_hidden_state = True
 
     pipeline_type = cfg.pipeline_type
 
@@ -52,25 +74,28 @@ def main():
         pipeline._set_default_pose_mode(True)
         logger.warning("Sim mode — holding default pose, press R to start motion")
 
-    while True:
-        time_start = time.time()
-        pipeline.step()
-        time_end = time.time()
-        time_diff = time_end - time_start
+    try:
+        while True:
+            time_start = time.time()
+            pipeline.step()
+            time_end = time.time()
+            time_diff = time_end - time_start
 
-        # keep the pipeline running at the desired frequency
-        if not cfg.run_fullspeed:
-            time_diff = pipeline.dt - time_diff
-            if time_diff > 0:
-                time.sleep(time_diff)
-            else:
-                if not cfg.env.is_sim:
-                    logger.error(f"Warning: frame drop -> {time_diff}")
-                    if time_diff < -0.2:
-                        logger.critical("Exiting due to excessive frame drop")
-                        pipeline.env.shutdown()
-                        time.sleep(10)
-                        break
+            # keep the pipeline running at the desired frequency
+            if not cfg.run_fullspeed:
+                time_diff = pipeline.dt - time_diff
+                if time_diff > 0:
+                    time.sleep(time_diff)
+                else:
+                    if not cfg.env.is_sim:
+                        logger.error(f"Warning: frame drop -> {time_diff}")
+                        if time_diff < -0.2:
+                            logger.critical("Exiting due to excessive frame drop")
+                            pipeline.env.shutdown()
+                            time.sleep(10)
+                            break
+    finally:
+        pipeline.close()
 
 
 if __name__ == "__main__":
