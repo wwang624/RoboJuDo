@@ -58,6 +58,12 @@ class CtrlManager:
         for controller in self.controllers.values():
             controller.inst.post_step_callback(commands)
 
+    def close(self):
+        for controller in self.controllers.values():
+            close = getattr(controller.inst, "close", None)
+            if callable(close):
+                close()
+
     def get_ctrl_data(self, env_data):
         ctrl_data_all = {}
         ctrl_commands_all = set()

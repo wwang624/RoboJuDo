@@ -66,6 +66,7 @@ class SoccerPerceptionProvider:
         self._latest_color_rgb: np.ndarray | None = None
         self._joint_pos: np.ndarray | None = None
         self._joint_names: list[str] | None = None
+        self._last_error_log_time = 0.0
 
     def start(self, *, threaded: bool = True) -> None:
         if not threaded:
@@ -92,7 +93,7 @@ class SoccerPerceptionProvider:
                     joint_names = None if self._joint_names is None else list(self._joint_names)
                 self.step(joint_pos=joint_pos, joint_names=joint_names)
             except Exception as exc:
-                logger.warning("Soccer perception step failed: %s", exc)
+                self._log_step_error(exc)
             sleep_time = period - (time.time() - start)
             if sleep_time > 0:
                 self._stop.wait(sleep_time)
@@ -128,11 +129,22 @@ class SoccerPerceptionProvider:
             self._joint_names = list(joint_names)
         if self._thread is not None and self._thread.is_alive():
             return self.latest()
-        return self.step(joint_pos=joint_pos, joint_names=joint_names)
+        try:
+            return self.step(joint_pos=joint_pos, joint_names=joint_names)
+        except Exception as exc:
+            self._log_step_error(exc)
+            return self.latest()
 
     def latest(self) -> SoccerPerceptionResult | None:
         with self._lock:
             return self._latest
+
+    def _log_step_error(self, exc: Exception) -> None:
+        now = time.time()
+        if now - self._last_error_log_time < 1.0:
+            return
+        self._last_error_log_time = now
+        logger.warning("Soccer perception step failed: %s", exc)
 
     def clear(self) -> None:
         with self._lock:

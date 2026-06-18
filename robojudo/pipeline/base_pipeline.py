@@ -62,10 +62,28 @@ class Pipeline(ABC):
         )
 
     def close(self):
+        ctrl_manager = getattr(self, "ctrl_manager", None)
+        if ctrl_manager is not None and hasattr(ctrl_manager, "close"):
+            try:
+                ctrl_manager.close()
+            except Exception as exc:
+                logger.warning("Controller close failed: %s", exc)
         if self.soccer_recorder is not None:
-            self.soccer_recorder.close()
+            try:
+                self.soccer_recorder.close()
+            except Exception as exc:
+                logger.warning("Soccer recorder close failed: %s", exc)
         if hasattr(self, "debug_logger"):
-            self.debug_logger.close()
+            try:
+                self.debug_logger.close()
+            except Exception as exc:
+                logger.warning("Debug logger close failed: %s", exc)
+        env = getattr(self, "env", None)
+        if env is not None and hasattr(env, "shutdown"):
+            try:
+                env.shutdown()
+            except Exception as exc:
+                logger.warning("Environment shutdown failed: %s", exc)
 
     @abstractmethod
     def step(self):

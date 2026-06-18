@@ -45,6 +45,9 @@ class SoccerPerceptionCtrl(ControllerHook):
         if commands and "[POLICY_LOCO]" in commands:
             self.provider.clear()
 
+    def close(self):
+        self.provider.stop()
+
     def get_data_with_hook(self, prior_ctrl_data: dict, env_data: dict):
         result = None
         if self.env is not None:
