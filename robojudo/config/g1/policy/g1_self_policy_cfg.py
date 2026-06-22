@@ -138,7 +138,7 @@ class G1SelfDoF(DoFConfig):
 class G1SelfPolicyCfg(SelfPolicyCfg):
     robot: str = "g1"
 
-    policy_name: str = "policy_17_4w"
+    policy_name: str = "policy_self"
     # policy_wo_noise_2w
     # policy_17_4w
 

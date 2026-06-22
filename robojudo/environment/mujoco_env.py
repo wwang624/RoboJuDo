@@ -245,6 +245,18 @@ class MujocoEnv(Environment):
         mujoco.mj_forward(self.model, self.data)  # pyright: ignore[reportAttributeAccessIssue]
         self._soccer_obs = self._get_soccer_obs()
 
+    def set_soccer_ball_world(self, ball_pos_w: np.ndarray):
+        if self._soccer_ball_qpos_addr is None:
+            return
+        self.data.qpos[self._soccer_ball_qpos_addr : self._soccer_ball_qpos_addr + 3] = np.asarray(ball_pos_w, dtype=np.float32)
+        self.data.qpos[self._soccer_ball_qpos_addr + 3 : self._soccer_ball_qpos_addr + 7] = np.array(
+            [1.0, 0.0, 0.0, 0.0], dtype=np.float32
+        )
+        if self._soccer_ball_qvel_addr is not None:
+            self.data.qvel[self._soccer_ball_qvel_addr : self._soccer_ball_qvel_addr + 6] = 0.0
+        mujoco.mj_forward(self.model, self.data)  # pyright: ignore[reportAttributeAccessIssue]
+        self._soccer_obs = self._get_soccer_obs()
+
     def reset(self):
         if self.born_place_align:  # TODO: merge
             self.born_place_align = False  # disable during reset

@@ -382,6 +382,13 @@ class SoccerPolicy(Policy):
             "body_ang_vel_w": self.onnx_policy.reference["body_ang_vel_w"][idx],
         }
 
+    def _motion_phase_sin_cos(self) -> np.ndarray:
+        time_step = CTRL_DETECTOR_WAIT_FRAME if self.waiting_for_ctrl_detector else self.timestep
+        denom = max(float(self.current_motion_length - 1), 1.0)
+        phase = np.clip(float(time_step) / denom, 0.0, 1.0)
+        angle = 2.0 * np.pi * phase
+        return np.array([np.sin(angle), np.cos(angle)], dtype=np.float32)
+
     def _compute_ball_to_goal_local(self, base_quat: np.ndarray) -> np.ndarray:
         ball_to_goal_world = my_quat_rotate_np(self.goal_anchor_heading_quat, self.ball_to_goal_anchor)
         return quat_rotate_inverse_np(np.asarray(base_quat, dtype=np.float32), ball_to_goal_world).astype(np.float32)
@@ -489,6 +496,7 @@ class SoccerPolicy(Policy):
             "actions": self.last_action.astype(np.float32),
             "target_point_pos": ball_local.astype(np.float32),
             "target_destination_pos_local": goal_local.astype(np.float32),
+            "motion_phase": self._motion_phase_sin_cos(),
         }
 
         obs_terms = []
