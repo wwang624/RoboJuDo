@@ -27,6 +27,7 @@ from .env.g1_real_env_cfg import G1RealEnvCfg, G1UnitreeCfg  # noqa: F401
 from .pipeline.g1_locomimic_pipeline_cfg import G1RlLocoMimicPipelineCfg  # noqa: F401
 from .policy.g1_amo_policy_cfg import G1AmoPolicyCfg  # noqa: F401
 from .policy.g1_amp_loco_policy_cfg import G1AmpLocoPolicyCfg  # noqa: F401
+from .policy.g1_amp_loco_policy_cfg import G1Sim2SimWalkPolicyCfg
 from .policy.g1_asap_policy_cfg import G1AsapLocoPolicyCfg, G1AsapPolicyCfg  # noqa: F401
 from .policy.g1_beyondmimic_policy_cfg import G1BeyondMimicPolicyCfg  # noqa: F401
 from .policy.g1_dl_policy_cfg import G1dlPolicyCfg  # noqa: F401
@@ -172,7 +173,7 @@ class g1_locomimic_soccer(G1RlLocoMimicPipelineCfg):
     ]
 
     # loco_policy: G1UnitreeWoGaitPolicyCfg = G1UnitreeWoGaitPolicyCfg()
-    loco_policy: G1AmpLocoPolicyCfg = G1AmpLocoPolicyCfg()
+    loco_policy: G1Sim2SimWalkPolicyCfg = G1Sim2SimWalkPolicyCfg()
     mimic_policies: list[G1SoccerPolicyCfg] = [
         G1SoccerPolicyCfg(),
     ]

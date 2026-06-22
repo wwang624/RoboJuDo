@@ -24,6 +24,7 @@ from .env.g1_dummy_env_cfg import G1DummyEnvCfg  # noqa: F401
 from .env.g1_mujuco_env_cfg import G1_12MujocoEnvCfg, G1_23MujocoEnvCfg, G1MujocoEnvCfg  # noqa: F401
 from .env.g1_real_env_cfg import G1RealEnvCfg, G1UnitreeCfg  # noqa: F401
 from .policy.g1_amo_policy_cfg import G1AmoPolicyCfg  # noqa: F401
+from .policy.g1_amp_loco_policy_cfg import G1Sim2SimWalkPolicyCfg  # noqa: F401
 from .policy.g1_asap_policy_cfg import G1AsapLocoPolicyCfg, G1AsapPolicyCfg  # noqa: F401
 from .policy.g1_beyondmimic_policy_cfg import G1BeyondMimicPolicyCfg  # noqa: F401
 from .policy.g1_h2h_policy_cfg import G1H2HPolicyCfg  # noqa: F401
@@ -141,6 +142,21 @@ class g1_locomimic(RlLocoMimicPipelineCfg):
     mimic_policies: list[G1AsapPolicyCfg] = [
         G1AsapPolicyCfg(),
     ]
+
+
+@cfg_registry.register
+class g1_sim2sim_walk(RlPipelineCfg):
+    """G1 29-DoF walking policy exported from the provided sim2sim package."""
+
+    robot: str = "g1"
+    env: G1MujocoEnvCfg = G1MujocoEnvCfg()
+
+    ctrl: list[JoystickCtrlCfg | KeyboardCtrlCfg] = [
+        JoystickCtrlCfg(),
+        KeyboardCtrlCfg(),
+    ]
+
+    policy: G1Sim2SimWalkPolicyCfg = G1Sim2SimWalkPolicyCfg()
 
 
 # ======================== Configs for supported Policy ======================== #

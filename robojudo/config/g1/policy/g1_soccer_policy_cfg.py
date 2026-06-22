@@ -205,7 +205,7 @@ class G1SoccerDoF(DoFConfig):
 class G1SoccerPolicyCfg(SoccerPolicyCfg):
     robot: str = "g1"
 
-    policy_name: str = "policy_30000"    # policy_80000_bundle
+    policy_name: str = "author_policy_30000"    # policy_80000_bundle
 
     obs_dof: DoFConfig = G1SoccerDoF()
     action_dof: DoFConfig = obs_dof

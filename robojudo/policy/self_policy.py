@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 
 import numpy as np
+import onnxruntime as ort
 import torch
 
 from robojudo.environment.utils.mujoco_viz import MujocoVisualizer
@@ -16,7 +18,17 @@ class SelfPolicy(Policy):
     cfg_policy: SelfPolicyCfg
 
     def __init__(self, cfg_policy, device):
+        self._uses_onnx = str(cfg_policy.policy_file).endswith(".onnx")
+        if self._uses_onnx:
+            cfg_policy.disable_autoload = True
         super().__init__(cfg_policy=cfg_policy, device=device)
+
+        self.onnx_session: ort.InferenceSession | None = None
+        self.onnx_input_name: str | None = None
+        if self._uses_onnx:
+            policy_file = Path(self.cfg_policy.policy_file)
+            self.onnx_session = ort.InferenceSession(str(policy_file), providers=["CPUExecutionProvider"])
+            self.onnx_input_name = self.onnx_session.get_inputs()[0].name
 
         self.obs_scales = self.cfg_policy.obs_scales
         self.max_cmd = np.array(self.cfg_policy.max_cmd)
@@ -25,6 +37,7 @@ class SelfPolicy(Policy):
         self.num_actions = self.cfg_policy.num_actions
         self.single_obs_dim = self.cfg_policy.single_obs_dim
         self.obs_history_len = self.cfg_policy.obs_history_len
+        self.include_phase_obs = bool(getattr(self.cfg_policy, "include_phase_obs", True))
         self.num_obs = self.single_obs_dim * self.obs_history_len
         self.action_scales = np.asarray(self.cfg_policy.action_scales, dtype=np.float32)
 
@@ -77,11 +90,15 @@ class SelfPolicy(Policy):
         return commands
 
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        obs_tensor = torch.from_numpy(obs).unsqueeze(0).float().to(self.device)
-        with torch.no_grad():
-            actions_tensor = self.model(obs_tensor).cpu()
-
-        actions = actions_tensor.numpy().squeeze()
+        if self._uses_onnx:
+            assert self.onnx_session is not None and self.onnx_input_name is not None
+            outputs = self.onnx_session.run(None, {self.onnx_input_name: obs.reshape(1, -1).astype(np.float32)})
+            actions = np.asarray(outputs[0], dtype=np.float32).squeeze()
+        else:
+            obs_tensor = torch.from_numpy(obs).unsqueeze(0).float().to(self.device)
+            with torch.no_grad():
+                actions_tensor = self.model(obs_tensor).cpu()
+            actions = actions_tensor.numpy().squeeze()
         actions = (1 - self.action_beta) * self.last_action + self.action_beta * actions
         self.last_action = actions.copy()
 
@@ -103,17 +120,22 @@ class SelfPolicy(Policy):
         dof_pos_rel = (env_data.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos
         dof_vel_rel = env_data.dof_vel * self.obs_scales.dof_vel
 
-        single_obs = np.concatenate(
-            [
-                env_data.base_ang_vel * self.obs_scales.ang_vel,
-                gravity_orientation,
-                clipped_commands * self.obs_scales.command,
-                dof_pos_rel,
-                dof_vel_rel,
-                self.last_action,
-                [sin_phase, cos_phase],
-            ]
-        ).astype(np.float32)
+        obs_parts = [
+            env_data.base_ang_vel * self.obs_scales.ang_vel,
+            gravity_orientation,
+            clipped_commands * self.obs_scales.command,
+            dof_pos_rel,
+            dof_vel_rel,
+            self.last_action,
+        ]
+        if self.include_phase_obs:
+            obs_parts.append(np.array([sin_phase, cos_phase], dtype=np.float32))
+        single_obs = np.concatenate(obs_parts).astype(np.float32)
+        if single_obs.shape[0] != self.single_obs_dim:
+            raise RuntimeError(
+                f"SelfPolicy single obs dim mismatch: built {single_obs.shape[0]}, expected {self.single_obs_dim}. "
+                f"include_phase_obs={self.include_phase_obs}"
+            )
         self.obs_history.append(single_obs)
         obs = np.concatenate(list(self.obs_history))
         extras = {"phase": phase, "commands": commands}

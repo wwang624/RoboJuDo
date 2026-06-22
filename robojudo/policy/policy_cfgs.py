@@ -229,7 +229,12 @@ class SelfPolicyCfg(PolicyCfg):
 
     @property
     def policy_file(self) -> str:
-        policy_file = ASSETS_DIR / f"models/{self.robot}/{self.model_group}/{self.policy_name}.pt"
+        policy_name = self.policy_name
+        if policy_name.endswith((".pt", ".onnx")):
+            filename = policy_name
+        else:
+            filename = f"{policy_name}.pt"
+        policy_file = ASSETS_DIR / f"models/{self.robot}/{self.model_group}/{filename}"
         return policy_file.as_posix()
 
     obs_scales: ObsScalesCfg = ObsScalesCfg()
@@ -243,6 +248,7 @@ class SelfPolicyCfg(PolicyCfg):
     history_length: int = 10
     obs_history_len: int = 10
     single_obs_dim: int = 98
+    include_phase_obs: bool = True
     num_actions: int = 29
     action_scales: list[float]
 
